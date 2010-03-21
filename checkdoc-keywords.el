@@ -1,9 +1,9 @@
 ;;; checkdoc-keywords.el --- check for known values in Keywords header
 
-;; Copyright 2009 Kevin Ryde
+;; Copyright 2009, 2010 Kevin Ryde
 
 ;; Author: Kevin Ryde <user42@zip.com.au>
-;; Version: 4
+;; Version: 5
 ;; Keywords: docs, lisp, maint
 ;; URL: http://user42.tuxfamily.org/checkdoc-keywords/index.html
 ;; EmacsWiki: CheckDoc
@@ -50,6 +50,7 @@
 ;; Version 2 - don't insert an empty keyword
 ;; Version 3 - some help for completing-help.el
 ;; Version 4 - return nil so as not to short-circuit the hook
+;; Version 5 - undo completing-help.el setups on unload-feature
 
 ;;; Code:
 
@@ -67,7 +68,8 @@
         'lm-keywords-finder-p))
 
   ;; xemacs21
-  (require 'cl)
+  (eval-and-compile ;; quieten the byte compiler
+    (require 'cl))
   (defun checkdoc-keywords--lm-keywords-finder-p (&optional file)
     (intersection
      (mapcar 'symbol-name (mapcar 'car finder-known-keywords))
@@ -182,8 +184,10 @@ URL `http://user42.tuxfamily.org/checkdoc-keywords/index.html'"
 ;; completing-help.el tie-in
 ;;
 ;; As of completing-help.el 3.13, `completing-help-alist-get-info' doesn't
-;; handle alists with symbols in the car's, instead of strings, like
+;; handle alists with symbols in the car's, as opposed to strings, like
 ;; `finder-known-keywords' has.
+
+(defvar completing-help-groups) ;; quieten the byte compiler
 
 (defvar checkdoc-keywords-completing-help-group
   '(:predicate checkdoc-keywords-completing-help-p
@@ -200,8 +204,21 @@ URL `http://user42.tuxfamily.org/checkdoc-keywords/index.html'"
   (cdr (assoc (intern-soft str) finder-known-keywords)))
 
 (eval-after-load "completing-help"
-  '(add-to-list 'completing-help-groups 'checkdoc-keywords-completing-help-group))
+  '(if (boundp 'checkdoc-keywords-completing-help-group) ;; in case unloaded
+       (add-to-list 'completing-help-groups
+                    'checkdoc-keywords-completing-help-group)))
 
+(defun checkdoc-keywords-unload-function ()
+
+  ;; mustn't leave an unbound variable name in `completing-help-groups' or
+  ;; it will error out (as of completing-help.el 3.13)
+  (if (boundp 'completing-help-groups)
+      (setq completing-help-groups
+            (remove 'checkdoc-keywords-completing-help-group
+                    completing-help-groups)))
+
+  ;; and do normal unload-feature actions too
+  nil)
 
 (provide 'checkdoc-keywords)
 
