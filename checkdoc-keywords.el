@@ -3,7 +3,7 @@
 ;; Copyright 2009, 2010 Kevin Ryde
 
 ;; Author: Kevin Ryde <user42@zip.com.au>
-;; Version: 5
+;; Version: 6
 ;; Keywords: docs, lisp, maint
 ;; URL: http://user42.tuxfamily.org/checkdoc-keywords/index.html
 ;; EmacsWiki: CheckDoc
@@ -24,9 +24,13 @@
 
 ;;; Commentary:
 
-;; This spot of code extends M-x checkdoc to check the Keywords: has at
-;; least one keywords known to `finder-by-keywords'.  See the docstring of
+;; This spot of code extends M-x checkdoc to check that Keywords: contains
+;; at least one keyword known to `finder-by-keywords'.  See the docstring of
 ;; `checkdoc-keywords-comment' below for more.
+
+;;; Emacsen:
+
+;; Designed for Emacs 21 and up, works in XEmacs 21 and Emacs 20.
 
 ;;; Install:
 
@@ -40,10 +44,6 @@
 ;; `update-file-autoloads' and friends, after which add or customize the
 ;; hook.
 
-;;; Emacsen:
-
-;; Designed for Emacs 21 and up, works in XEmacs 21.
-
 ;;; History:
 
 ;; Version 1 - the first version
@@ -51,6 +51,8 @@
 ;; Version 3 - some help for completing-help.el
 ;; Version 4 - return nil so as not to short-circuit the hook
 ;; Version 5 - undo completing-help.el setups on unload-feature
+;; Version 6 - emacs21 completing-read requires strings in the table
+;;           - don't double comma if existing Keywords ends in comma
 
 ;;; Code:
 
@@ -130,7 +132,9 @@ URL `http://user42.tuxfamily.org/checkdoc-keywords/index.html'"
 
         (goto-char (point-min))
         (if (re-search-forward (lm-get-header-re "Keywords") nil t)
-            (end-of-line)
+	    (progn
+	      (end-of-line)
+	      (skip-chars-backward " \t,"))
 
           ;; no existing Keywords, make `fmt' insert a whole new one
           (setq fmt ";; Keywords: %s\n")
@@ -147,13 +151,20 @@ URL `http://user42.tuxfamily.org/checkdoc-keywords/index.html'"
             (setq fmt (concat "\n" fmt))))
 
         (if (checkdoc-y-or-n-p "`Keywords:' has none of `finder-known-keywords'.  Add one? ")
-            (setq keyword (completing-read "Keyword: "
-                                           finder-known-keywords
-                                           nil
-                                           t))) ;; require-match
+            (setq keyword
+                  ;; Crib note: completion table keys must be strings for
+                  ;; emacs21, and also completing-help.el 3.13
+                  ;; `completing-help-alist-p' only recognises strings
+                  (completing-read "Keyword: "
+                                   (mapcar (lambda (elem)
+                                             (cons (symbol-name (car elem))
+                                                   (cdr elem)))
+                                           finder-known-keywords)
+                                   nil ;; predicate
+                                   t))) ;; require-match
         ;; completing-read returns empty string "" on just pressing return,
-        ;; don't insert that or it ends up as a trailing comma, which
-        ;; emacs23 treats as part of the last symbol.  Instead consider an
+        ;; don't insert that or it ends up as a trailing comma, which Emacs
+        ;; 23.1 treats as part of the last symbol.  Instead consider an
         ;; empty return as don't want to add.
         (if (equal "" keyword)
             (setq keyword nil))
@@ -179,46 +190,6 @@ URL `http://user42.tuxfamily.org/checkdoc-keywords/index.html'"
 ;;;###autoload
 (custom-add-option 'checkdoc-comment-style-hooks 'checkdoc-keywords-comment)
 
-
-;;-----------------------------------------------------------------------------
-;; completing-help.el tie-in
-;;
-;; As of completing-help.el 3.13, `completing-help-alist-get-info' doesn't
-;; handle alists with symbols in the car's, as opposed to strings, like
-;; `finder-known-keywords' has.
-
-(defvar completing-help-groups) ;; quieten the byte compiler
-
-(defvar checkdoc-keywords-completing-help-group
-  '(:predicate checkdoc-keywords-completing-help-p
-    :get       checkdoc-keywords-completing-help-get
-    :info-head " - "
-    :info-tail ""))
-
-(defun checkdoc-keywords-completing-help-p ()
-  "Return non-nil when completing from `finder-known-keywords'."
-  (eq minibuffer-completion-table finder-known-keywords))
-
-(defun checkdoc-keywords-completing-help-get (str)
-  "Return a help string for finder keyword STR, or nil if unknown."
-  (cdr (assoc (intern-soft str) finder-known-keywords)))
-
-(eval-after-load "completing-help"
-  '(if (boundp 'checkdoc-keywords-completing-help-group) ;; in case unloaded
-       (add-to-list 'completing-help-groups
-                    'checkdoc-keywords-completing-help-group)))
-
-(defun checkdoc-keywords-unload-function ()
-
-  ;; mustn't leave an unbound variable name in `completing-help-groups' or
-  ;; it will error out (as of completing-help.el 3.13)
-  (if (boundp 'completing-help-groups)
-      (setq completing-help-groups
-            (remove 'checkdoc-keywords-completing-help-group
-                    completing-help-groups)))
-
-  ;; and do normal unload-feature actions too
-  nil)
 
 (provide 'checkdoc-keywords)
 
