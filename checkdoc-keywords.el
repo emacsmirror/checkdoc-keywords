@@ -1,10 +1,10 @@
 ;;; checkdoc-keywords.el --- check for known values in Keywords header
 
-;; Copyright 2009, 2010 Kevin Ryde
+;; Copyright 2009, 2010, 2015 Kevin Ryde
 
-;; Author: Kevin Ryde <user42@zip.com.au>
-;; Version: 6
-;; Keywords: docs, lisp, maint
+;; Author: Kevin Ryde <user42_kevin@yahoo.com.au>
+;; Version: 7
+;; Keywords: lisp, maint, checkdoc
 ;; URL: http://user42.tuxfamily.org/checkdoc-keywords/index.html
 ;; EmacsWiki: CheckDoc
 
@@ -53,6 +53,7 @@
 ;; Version 5 - undo completing-help.el setups on unload-feature
 ;; Version 6 - emacs21 completing-read requires strings in the table
 ;;           - don't double comma if existing Keywords ends in comma
+;; Version 7 - new email
 
 ;;; Code:
 
@@ -61,7 +62,7 @@
 (require 'lisp-mnt)
 
 ;;-----------------------------------------------------------------------------
-;; xemacs21 lacking
+;; xemacs21 compatibility
 
 (if (eval-when-compile (fboundp 'lm-keywords-finder-p))
     ;; emacs21 up
@@ -71,7 +72,7 @@
 
   ;; xemacs21
   (eval-and-compile ;; quieten the byte compiler
-    (require 'cl))
+    (require 'cl)) ;; for `intersection' in xemacs21
   (defun checkdoc-keywords--lm-keywords-finder-p (&optional file)
     (intersection
      (mapcar 'symbol-name (mapcar 'car finder-known-keywords))
@@ -190,6 +191,7 @@ URL `http://user42.tuxfamily.org/checkdoc-keywords/index.html'"
 ;;;###autoload
 (custom-add-option 'checkdoc-comment-style-hooks 'checkdoc-keywords-comment)
 
+;; LocalWords: docstring el foo
 
 (provide 'checkdoc-keywords)
 
